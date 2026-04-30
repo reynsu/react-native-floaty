@@ -10,3 +10,7 @@ coverage/
 example/node_modules/
 example/.expo/
 example/dist/
+example/package-lock.json
+example/web-build/
+example/ios/
+example/android/
