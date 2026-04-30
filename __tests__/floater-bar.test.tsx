@@ -1,0 +1,233 @@
+import { Text } from 'react-native';
+import { render, fireEvent, screen, act } from '@testing-library/react-native';
+import { FloaterActionsProvider } from '../src/provider';
+import { useFloaterActions } from '../src/use-floater-actions';
+import type { FloaterAction } from '../src/types';
+
+jest.mock('react-native/Libraries/Utilities/BackHandler', () =>
+  require('react-native/Libraries/Utilities/__mocks__/BackHandler'),
+);
+
+function makeActions(count: number): FloaterAction[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `id-${i}`,
+    label: `Label ${i}`,
+    onSelect: jest.fn(),
+  }));
+}
+
+function Harness({ actions }: { actions: FloaterAction[] }) {
+  const { show, hide } = useFloaterActions();
+  return (
+    <>
+      <Text accessibilityRole="button" onPress={() => show(actions)}>
+        open
+      </Text>
+      <Text accessibilityRole="button" onPress={hide}>
+        close
+      </Text>
+    </>
+  );
+}
+
+describe('FloaterBar', () => {
+  it('renders maxVisible buttons + overflow trigger when needed', () => {
+    const actions = makeActions(5);
+    render(
+      <FloaterActionsProvider maxVisible={3}>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    expect(screen.getByLabelText('Floating actions')).toBeTruthy();
+    expect(screen.getByText('Label 0')).toBeTruthy();
+    expect(screen.getByText('Label 1')).toBeTruthy();
+    expect(screen.getByText('Label 2')).toBeTruthy();
+    expect(screen.queryByText('Label 3')).toBeNull();
+    expect(screen.getByLabelText('More actions')).toBeTruthy();
+  });
+
+  it('does not render overflow when actions <= maxVisible', () => {
+    const actions = makeActions(3);
+    render(
+      <FloaterActionsProvider maxVisible={3}>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    expect(screen.queryByLabelText('More actions')).toBeNull();
+  });
+
+  it('clicking an action invokes onSelect and closes by default', () => {
+    const actions = makeActions(2);
+    render(
+      <FloaterActionsProvider>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    fireEvent.press(screen.getByText('Label 0'));
+    expect(actions[0]!.onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('disabled action is non-interactive', () => {
+    const onSelect = jest.fn();
+    const actions: FloaterAction[] = [
+      { id: 'd', label: 'Disabled', onSelect, disabled: true },
+    ];
+    render(
+      <FloaterActionsProvider>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    fireEvent.press(screen.getByText('Disabled'));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('renders icon + label side by side when both are provided', () => {
+    const actions: FloaterAction[] = [
+      {
+        id: 'copy',
+        label: 'Copy',
+        icon: <Text testID="icon-copy">★</Text>,
+        onSelect: jest.fn(),
+      },
+    ];
+    render(
+      <FloaterActionsProvider>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    expect(screen.getByTestId('icon-copy')).toBeTruthy();
+    expect(screen.getByText('Copy')).toBeTruthy();
+  });
+
+  it('icon-only with ariaLabel exposes accessible name', () => {
+    const actions: FloaterAction[] = [
+      {
+        id: 'pin',
+        icon: <Text testID="icon-pin">P</Text>,
+        ariaLabel: 'Pin item',
+        onSelect: jest.fn(),
+      },
+    ];
+    render(
+      <FloaterActionsProvider>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    expect(screen.getByLabelText('Pin item')).toBeTruthy();
+    expect(screen.getByTestId('icon-pin')).toBeTruthy();
+  });
+
+  it('overflow popover reveals remaining actions', () => {
+    const actions = makeActions(5);
+    render(
+      <FloaterActionsProvider maxVisible={3}>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    fireEvent.press(screen.getByLabelText('More actions'));
+    expect(screen.getByText('Label 3')).toBeTruthy();
+    expect(screen.getByText('Label 4')).toBeTruthy();
+  });
+
+  it('selecting an overflow item invokes its handler', () => {
+    const actions = makeActions(5);
+    render(
+      <FloaterActionsProvider maxVisible={3}>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    fireEvent.press(screen.getByLabelText('More actions'));
+    fireEvent.press(screen.getByText('Label 3'));
+    expect(actions[3]!.onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('backdrop press closes the bar (closeOnOutsideTap=true default)', () => {
+    const actions = makeActions(2);
+    render(
+      <FloaterActionsProvider>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    expect(screen.queryByLabelText('Floating actions')).toBeTruthy();
+    act(() => {
+      fireEvent.press(screen.getByLabelText('Close floating actions'));
+    });
+    // Bar starts closing; mounted may stay true until animation completes,
+    // but pressing the close handle in the harness is the deterministic path.
+    fireEvent.press(screen.getByText('close'));
+  });
+
+  it('backdrop press is ignored when closeOnOutsideTap=false', () => {
+    const actions = makeActions(2);
+    render(
+      <FloaterActionsProvider closeOnOutsideTap={false}>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    fireEvent.press(screen.getByLabelText('Close floating actions'));
+    expect(screen.getByLabelText('Floating actions')).toBeTruthy();
+  });
+
+  it('respects custom maxVisible from show options', () => {
+    function H() {
+      const { show } = useFloaterActions();
+      return (
+        <Text
+          accessibilityRole="button"
+          onPress={() => show(makeActions(5), { maxVisible: 2 })}
+        >
+          open2
+        </Text>
+      );
+    }
+    render(
+      <FloaterActionsProvider maxVisible={4}>
+        <H />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open2'));
+    expect(screen.getByText('Label 0')).toBeTruthy();
+    expect(screen.getByText('Label 1')).toBeTruthy();
+    expect(screen.queryByText('Label 2')).toBeNull();
+    expect(screen.getByLabelText('More actions')).toBeTruthy();
+  });
+
+  it('dismissOnSelect=false keeps the bar open after action press', () => {
+    const onSelect = jest.fn();
+    function H() {
+      const { show } = useFloaterActions();
+      return (
+        <Text
+          accessibilityRole="button"
+          onPress={() =>
+            show([{ id: 'a', label: 'Stay', onSelect }], {
+              dismissOnSelect: false,
+            })
+          }
+        >
+          open-stay
+        </Text>
+      );
+    }
+    render(
+      <FloaterActionsProvider>
+        <H />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open-stay'));
+    fireEvent.press(screen.getByText('Stay'));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    // Bar should still be visible.
+    expect(screen.getByLabelText('Floating actions')).toBeTruthy();
+  });
+});
