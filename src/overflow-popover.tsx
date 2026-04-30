@@ -74,6 +74,7 @@ export function OverflowPopover({
                 disabled={a.disabled}
                 accessibilityRole="menuitem"
                 accessibilityLabel={accessibleName}
+                accessibilityState={{ disabled: !!a.disabled }}
                 style={({ pressed }) => ({
                   paddingVertical: 10,
                   paddingHorizontal: 12,

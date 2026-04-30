@@ -32,17 +32,21 @@ describe('arcLayout', () => {
       arcLayout.actionStyle(i, n, theme, radius),
     ) as Array<Record<string, number>>;
 
-    // First button (i=0) is at angle π → cos=-1 → leftmost
-    expect(positions[0]!.left).toBeCloseTo(0 - theme.actionH / 2, 5);
-    // Last button (i=n-1) is at angle 2π → cos=1 → rightmost
-    expect(positions[n - 1]!.left).toBeCloseTo(
-      radius * 2 - theme.actionH / 2,
-      5,
-    );
-    // Middle buttons sit higher (smaller `top` numerically — top of half-circle)
+    // First button (i=0) is at angle π → cos=-1 → x = 0 (left edge of container)
+    expect(positions[0]!.left).toBeCloseTo(0, 5);
+    // Last button (i=n-1) is at angle 2π → cos=1 → x = 2·radius (right edge minus actionH)
+    expect(positions[n - 1]!.left).toBeCloseTo(radius * 2, 5);
+    // Edge buttons sit at baseline (top = radius); middle buttons higher (smaller top)
+    expect(positions[0]!.top).toBeCloseTo(radius, 5);
+    expect(positions[n - 1]!.top).toBeCloseTo(radius, 5);
     const middleTop = positions[Math.floor(n / 2)]!.top;
-    const edgeTop = positions[0]!.top;
-    expect(middleTop).toBeLessThan(edgeTop);
+    expect(middleTop).toBeLessThan(positions[0]!.top);
+    // All buttons stay within the container height (radius + actionH); tolerance for floating-point math
+    const containerHeight = radius + theme.actionH;
+    positions.forEach((p) => {
+      expect(p.top).toBeGreaterThanOrEqual(-1e-6);
+      expect(p.top + theme.actionH).toBeLessThanOrEqual(containerHeight + 1e-6);
+    });
   });
 
   it('handles n=1 without divide-by-zero', () => {

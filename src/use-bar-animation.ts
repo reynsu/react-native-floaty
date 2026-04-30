@@ -40,49 +40,49 @@ export function useBarAnimation(open: boolean, position: 'bottom' | 'top' = 'bot
       if (reduceMotion) {
         translateY.setValue(0);
         opacity.setValue(1);
-        return;
+      } else {
+        animationRef.current = Animated.parallel([
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: OPEN_MS,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: OPEN_MS,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]);
+        animationRef.current.start();
       }
+    } else if (reduceMotion) {
+      opacity.setValue(0);
+      setMounted(false);
+    } else {
       animationRef.current = Animated.parallel([
         Animated.timing(translateY, {
-          toValue: 0,
-          duration: OPEN_MS,
-          easing: Easing.out(Easing.cubic),
+          toValue: initialY,
+          duration: CLOSE_MS,
+          easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 1,
-          duration: OPEN_MS,
-          easing: Easing.out(Easing.cubic),
+          toValue: 0,
+          duration: CLOSE_MS,
+          easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
       ]);
-      animationRef.current.start();
-      return;
+      animationRef.current.start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
     }
 
-    if (reduceMotion) {
-      opacity.setValue(0);
-      setMounted(false);
-      return;
-    }
-
-    animationRef.current = Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: initialY,
-        duration: CLOSE_MS,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: CLOSE_MS,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]);
-    animationRef.current.start(({ finished }) => {
-      if (finished) setMounted(false);
-    });
+    return () => {
+      animationRef.current?.stop();
+    };
   }, [open, reduceMotion, translateY, opacity, initialY]);
 
   return { mounted, translateY, opacity };

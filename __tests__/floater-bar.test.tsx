@@ -1,5 +1,5 @@
 import { Text } from 'react-native';
-import { render, fireEvent, screen, act } from '@testing-library/react-native';
+import { render, fireEvent, screen } from '@testing-library/react-native';
 import { FloaterActionsProvider } from '../src/provider';
 import { useFloaterActions } from '../src/use-floater-actions';
 import type { FloaterAction } from '../src/types';
@@ -17,7 +17,7 @@ function makeActions(count: number): FloaterAction[] {
 }
 
 function Harness({ actions }: { actions: FloaterAction[] }) {
-  const { show, hide } = useFloaterActions();
+  const { show, hide, open } = useFloaterActions();
   return (
     <>
       <Text accessibilityRole="button" onPress={() => show(actions)}>
@@ -26,6 +26,7 @@ function Harness({ actions }: { actions: FloaterAction[] }) {
       <Text accessibilityRole="button" onPress={hide}>
         close
       </Text>
+      <Text testID="state">{open ? 'open' : 'closed'}</Text>
     </>
   );
 }
@@ -157,13 +158,10 @@ describe('FloaterBar', () => {
       </FloaterActionsProvider>,
     );
     fireEvent.press(screen.getByText('open'));
-    expect(screen.queryByLabelText('Floating actions')).toBeTruthy();
-    act(() => {
-      fireEvent.press(screen.getByLabelText('Close floating actions'));
-    });
-    // Bar starts closing; mounted may stay true until animation completes,
-    // but pressing the close handle in the harness is the deterministic path.
-    fireEvent.press(screen.getByText('close'));
+    expect(screen.getByTestId('state').props.children).toBe('open');
+    fireEvent.press(screen.getByLabelText('Close floating actions'));
+    // Store flips synchronously even though the close animation runs.
+    expect(screen.getByTestId('state').props.children).toBe('closed');
   });
 
   it('backdrop press is ignored when closeOnOutsideTap=false', () => {
@@ -174,8 +172,10 @@ describe('FloaterBar', () => {
       </FloaterActionsProvider>,
     );
     fireEvent.press(screen.getByText('open'));
-    fireEvent.press(screen.getByLabelText('Close floating actions'));
-    expect(screen.getByLabelText('Floating actions')).toBeTruthy();
+    expect(screen.getByTestId('state').props.children).toBe('open');
+    // The close-affordance is not rendered at all when outside-tap is disabled.
+    expect(screen.queryByLabelText('Close floating actions')).toBeNull();
+    expect(screen.getByTestId('state').props.children).toBe('open');
   });
 
   it('respects custom maxVisible from show options', () => {

@@ -13,12 +13,12 @@ import { ActionButton } from './action-button';
 import { OverflowPopover } from './overflow-popover';
 import { rowLayout } from './layouts/row';
 import { arcLayout } from './layouts/arc';
-import type { FloaterAction, FloaterLayout } from './types';
+import type { FloaterAction } from './types';
 
-const layouts: Record<FloaterLayout, typeof rowLayout | typeof arcLayout> = {
+const layouts = {
   row: rowLayout,
   arc: arcLayout,
-};
+} as const;
 
 export function FloaterBar() {
   const ctx = useContext(FloaterContext);
@@ -64,11 +64,10 @@ export function FloaterBar() {
     >
       <Pressable
         style={StyleSheet.absoluteFill}
-        onPress={() => {
-          if (closeOnOutsideTap) hide();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel="Close floating actions"
+        onPress={closeOnOutsideTap ? hide : undefined}
+        accessibilityRole={closeOnOutsideTap ? 'button' : 'none'}
+        accessibilityLabel={closeOnOutsideTap ? 'Close floating actions' : undefined}
+        importantForAccessibility={closeOnOutsideTap ? 'yes' : 'no-hide-descendants'}
       />
       <View
         style={[
