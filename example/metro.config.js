@@ -1,21 +1,36 @@
-// Metro can't resolve packages linked via file: outside its project root unless
-// we extend watchFolders to include the package source. We also force shared
-// peer deps (react, react-native) to resolve to the example's copies — the
-// linked package's parent has its own node_modules with different versions
-// that would otherwise win when imported from the package source.
+// The example links the package via `file:..`, which npm turns into a symlink
+// to the parent directory. Two problems to solve:
+//
+//   1. Metro's hierarchical resolver, when processing the package source, will
+//      walk UP from `react-native-floaty/src/*.ts` and find the parent's
+//      `node_modules/react-native` (RN 0.74, kept for the lib's own jest
+//      setup) before reaching the example's RN 0.81. Two RN copies → empty
+//      TurboModule registry at runtime → "PlatformConstants could not be
+//      found" crash.
+//
+//   2. If we just blockList the parent's node_modules, the lib's source can no
+//      longer find `react-native` at all.
+//
+// Solution: blockList + extraNodeModules together. Block the parent's
+// node_modules so its old React/RN never gets scanned, and explicitly alias
+// the shared peer deps to the example's copies so the lib source still
+// resolves them.
 const path = require('path');
 const { getDefaultConfig } = require('expo/metro-config');
 
 const projectRoot = __dirname;
 const packageRoot = path.resolve(projectRoot, '..');
+const exampleModules = path.resolve(projectRoot, 'node_modules');
 
 const config = getDefaultConfig(projectRoot);
 
 config.watchFolders = [packageRoot];
 
-// Pin shared deps to the example's node_modules so the package source
-// resolves through the same React/RN instance the app uses.
-const exampleModules = path.resolve(projectRoot, 'node_modules');
+const escapedParent = packageRoot.replace(/[/\\]/g, '[/\\\\]');
+config.resolver.blockList = [
+  new RegExp(`${escapedParent}[/\\\\]node_modules[/\\\\].*`),
+];
+
 config.resolver.extraNodeModules = {
   react: path.resolve(exampleModules, 'react'),
   'react-native': path.resolve(exampleModules, 'react-native'),
