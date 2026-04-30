@@ -36,9 +36,10 @@ export const defaultTheme: FloaterTheme = {
 
 export function mergeTheme(partial?: Partial<FloaterTheme>): FloaterTheme {
   if (!partial) return defaultTheme;
-  return {
-    ...defaultTheme,
-    ...partial,
-    shadow: { ...defaultTheme.shadow, ...partial.shadow },
-  };
+  // Only deep-merge shadow when the caller actually provided one — avoids an
+  // extra object allocation on every provider render for the common case.
+  const shadow = partial.shadow
+    ? { ...defaultTheme.shadow, ...partial.shadow }
+    : defaultTheme.shadow;
+  return { ...defaultTheme, ...partial, shadow };
 }

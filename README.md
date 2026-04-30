@@ -11,7 +11,7 @@ This is the React Native port of [`react-floaty`](https://github.com/reynsu/floa
 - 👆 Tap outside the bar to dismiss · Android hardware back closes
 - ♿️ Honors `prefers-reduced-motion`
 - 🎨 Themable via a tokens object (no CSS)
-- 📐 Two layouts: `row` (default) and `arc` (180° fan)
+- 📐 Two layouts: `row` (default) and `radial` (360° orbit)
 - 📦 ESM + CJS, full TypeScript types
 
 ## Install
@@ -64,11 +64,33 @@ export default function App() {
 | `closeOnOutsideTap` | `boolean` | `true` | Tap on backdrop closes the bar |
 | `closeOnBackPress` | `boolean` | `true` | Android hardware back closes the bar |
 | `theme` | `Partial<FloaterTheme>` | — | Deep-merged with [`defaultTheme`](#theming) |
-| `layout` | `'row' \| 'arc'` | `'row'` | Buttons in a row, or arranged on a half-circle |
+| `layout` | `'row' \| 'radial'` | `'row'` | Buttons in a row, or evenly distributed around 360° |
 | `position` | `'bottom' \| 'top'` | `'bottom'` | Where the bar slides in from |
-| `radius` | `number` | `actionH * 1.6` | Used by `arc` layout only |
+| `radius` | `number` | `actionH * 1.6` | Used by `radial` layout only |
 
-### `useFloaterActions(): FloaterApi`
+### Hooks
+
+Four hooks ship — pick the narrowest one for the job to avoid unnecessary re-renders.
+
+| Hook | Returns | Subscribes to | Use when |
+|---|---|---|---|
+| `useFloaterApi()` | `{ show, hide, toggle }` | nothing — methods are stable | The component **triggers** the bar but doesn't read its state. **Best for most call sites.** |
+| `useFloaterOpen()` | `boolean` | just `open` | You need to react to bar visibility (e.g. dim a panel underneath). |
+| `useFloaterState()` | `{ open, actions, options }` | full state | You need to mirror what's currently in the bar. Rarely needed. |
+| `useFloaterActions()` | `{ ...state, ...api }` | full state | Convenience for v0.1 ergonomics. **Re-renders on every state change** — prefer the narrower hooks for new code. |
+
+```ts
+// Common pattern — trigger the bar without re-rendering on its state.
+function ArchiveButton({ ids }: { ids: string[] }) {
+  const { show } = useFloaterApi();
+  return (
+    <Button
+      title={`Archive (${ids.length})`}
+      onPress={() => show([{ id: 'a', label: 'Archive', onSelect: () => archive(ids) }])}
+    />
+  );
+}
+```
 
 ```ts
 type FloaterApi = {
@@ -158,16 +180,22 @@ type FloaterTheme = {
 └────────────────────────────┘
 ```
 
-### `arc` — 180° fan
+### `radial` — 360° orbit
+
+Buttons distribute evenly around a circle of `radius` pixels. Combined with the
+default `position: 'bottom'` and `theme.bottomInset`, the lowest button (south
+of the orbit) sits exactly `bottomInset` pixels above the screen bottom — fully
+visible — while the rest fan upward and around.
 
 ```
-            (action 2)
-   (action 1)          (action 3)
-(action 0)                (action n-1)
+        (i=0, top)
+(i=n-1)             (i=1)
+(i=...)             (i=...)
+        (i=n/2, bottom — sits at bottomInset)
 ```
 
 ```tsx
-<FloaterActionsProvider layout="arc" radius={90}>
+<FloaterActionsProvider layout="radial" radius={90}>
   <App />
 </FloaterActionsProvider>
 ```

@@ -22,4 +22,14 @@ describe('mergeTheme', () => {
     expect(defaultTheme.actionH).toBe(44);
     expect(defaultTheme.radius).toBe(16);
   });
+
+  it('returns the same shadow reference when caller does not override it', () => {
+    // Optimization: avoid spread allocation when partial.shadow is undefined.
+    const merged = mergeTheme({ bg: '#000' });
+    expect(merged.shadow).toBe(defaultTheme.shadow);
+  });
+
+  it('returns identical reference for empty partial', () => {
+    expect(mergeTheme()).toBe(defaultTheme);
+  });
 });

@@ -1,5 +1,5 @@
 import { rowLayout } from '../src/layouts/row';
-import { arcLayout } from '../src/layouts/arc';
+import { radialLayout } from '../src/layouts/radial';
 import { defaultTheme } from '../src/theme';
 
 describe('rowLayout', () => {
@@ -15,42 +15,63 @@ describe('rowLayout', () => {
   });
 });
 
-describe('arcLayout', () => {
+describe('radialLayout', () => {
   const radius = 70;
   const theme = defaultTheme;
 
-  it('barStyle declares enough space for radius + actionH', () => {
-    const s = arcLayout.barStyle(theme, radius) as Record<string, unknown>;
+  it('barStyle is a square sized for full 360° orbit', () => {
+    const s = radialLayout.barStyle(theme, radius) as Record<string, unknown>;
     expect(s.width).toBe(radius * 2 + theme.actionH);
-    expect(s.height).toBe(radius + theme.actionH);
+    expect(s.height).toBe(radius * 2 + theme.actionH);
     expect(s.backgroundColor).toBe('transparent');
   });
 
-  it('positions buttons along a half-circle (i=0 at left, i=n-1 at right)', () => {
+  it('distributes buttons evenly around 360° starting at top', () => {
     const n = 4;
     const positions = Array.from({ length: n }, (_, i) =>
-      arcLayout.actionStyle(i, n, theme, radius),
+      radialLayout.actionStyle(i, n, theme, radius),
     ) as Array<Record<string, number>>;
 
-    // First button (i=0) is at angle π → cos=-1 → x = 0 (left edge of container)
-    expect(positions[0]!.left).toBeCloseTo(0, 5);
-    // Last button (i=n-1) is at angle 2π → cos=1 → x = 2·radius (right edge minus actionH)
-    expect(positions[n - 1]!.left).toBeCloseTo(radius * 2, 5);
-    // Edge buttons sit at baseline (top = radius); middle buttons higher (smaller top)
-    expect(positions[0]!.top).toBeCloseTo(radius, 5);
-    expect(positions[n - 1]!.top).toBeCloseTo(radius, 5);
-    const middleTop = positions[Math.floor(n / 2)]!.top;
-    expect(middleTop).toBeLessThan(positions[0]!.top);
-    // All buttons stay within the container height (radius + actionH); tolerance for floating-point math
-    const containerHeight = radius + theme.actionH;
+    const cx = radius;
+    const cy = radius;
+
+    // i=0 at angle -π/2 → top of circle (cos=0, sin=-1)
+    expect(positions[0]!.left).toBeCloseTo(cx, 5);
+    expect(positions[0]!.top).toBeCloseTo(0, 5);
+
+    // i=1 at angle 0 → right side (cos=1, sin=0)
+    expect(positions[1]!.left).toBeCloseTo(2 * radius, 5);
+    expect(positions[1]!.top).toBeCloseTo(cy, 5);
+
+    // i=2 at angle π/2 → bottom of circle (cos=0, sin=1) — KEY:
+    // its top edge is at the container's bottom-minus-actionH, so the button
+    // sits flush with the container bottom. That's the "lowest button stays
+    // visible" guarantee — combined with `position: 'bottom'` + bottomInset.
+    expect(positions[2]!.left).toBeCloseTo(cx, 5);
+    expect(positions[2]!.top).toBeCloseTo(2 * radius, 5);
+
+    // i=3 at angle π → left side (cos=-1, sin=0)
+    expect(positions[3]!.left).toBeCloseTo(0, 5);
+    expect(positions[3]!.top).toBeCloseTo(cy, 5);
+  });
+
+  it('every button stays within the container bounds', () => {
+    const n = 8;
+    const containerWidth = radius * 2 + theme.actionH;
+    const containerHeight = radius * 2 + theme.actionH;
+    const positions = Array.from({ length: n }, (_, i) =>
+      radialLayout.actionStyle(i, n, theme, radius),
+    ) as Array<Record<string, number>>;
     positions.forEach((p) => {
+      expect(p.left).toBeGreaterThanOrEqual(-1e-6);
       expect(p.top).toBeGreaterThanOrEqual(-1e-6);
+      expect(p.left + theme.actionH).toBeLessThanOrEqual(containerWidth + 1e-6);
       expect(p.top + theme.actionH).toBeLessThanOrEqual(containerHeight + 1e-6);
     });
   });
 
   it('handles n=1 without divide-by-zero', () => {
-    const s = arcLayout.actionStyle(0, 1, theme, radius) as Record<string, number>;
+    const s = radialLayout.actionStyle(0, 1, theme, radius) as Record<string, number>;
     expect(Number.isFinite(s.left)).toBe(true);
     expect(Number.isFinite(s.top)).toBe(true);
   });

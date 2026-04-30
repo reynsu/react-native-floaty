@@ -92,7 +92,7 @@ const LAYOUTS: { name: string; layout: FloaterLayout; theme?: object; radius?: n
       radius: 24,
     },
   },
-  { name: 'Arc layout', layout: 'arc', radius: 90 },
+  { name: 'Radial layout', layout: 'radial', radius: 90 },
 ];
 
 export default function App() {

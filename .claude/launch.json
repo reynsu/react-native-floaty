@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rn-floaty-example",
+      "runtimeExecutable": "./example/node_modules/.bin/expo",
+      "runtimeArgs": ["start", "--web", "--port", "8088"],
+      "cwd": "./example",
+      "port": 8088
+    }
+  ]
+}

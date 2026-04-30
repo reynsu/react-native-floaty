@@ -1,5 +1,10 @@
 export { FloaterActionsProvider } from './provider';
-export { useFloaterActions } from './use-floater-actions';
+export {
+  useFloaterActions,
+  useFloaterApi,
+  useFloaterOpen,
+  useFloaterState,
+} from './use-floater-actions';
 export { defaultTheme, mergeTheme } from './theme';
 export type {
   FloaterAction,

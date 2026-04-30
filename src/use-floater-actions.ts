@@ -1,22 +1,27 @@
 import { useCallback, useContext, useMemo, useSyncExternalStore } from 'react';
-import { FloaterContext } from './context';
-import type { FloaterAction, FloaterApi, ShowOptions } from './types';
+import { FloaterContext, type FloaterContextValue } from './context';
+import type { FloaterAction, FloaterApi, FloaterState, ShowOptions } from './types';
 import { warnDev } from './warn';
 
-export function useFloaterActions(): FloaterApi {
+function useCtx(): FloaterContextValue {
   const ctx = useContext(FloaterContext);
   if (!ctx) {
     throw new Error(
       '[floaty] useFloaterActions must be used inside <FloaterActionsProvider>',
     );
   }
-  const { store } = ctx;
+  return ctx;
+}
 
-  const state = useSyncExternalStore(
-    store.subscribe,
-    store.getState,
-    store.getServerState,
-  );
+/**
+ * Stable imperative API — `show`, `hide`, `toggle`. Does NOT subscribe to
+ * store updates, so consumers calling these methods never re-render when
+ * `open`/`actions`/`options` change.
+ *
+ * Use this in components that only TRIGGER the bar (most call sites).
+ */
+export function useFloaterApi(): Pick<FloaterApi, 'show' | 'hide' | 'toggle'> {
+  const { store } = useCtx();
 
   const show = useCallback(
     (actions: FloaterAction[], options?: ShowOptions) => {
@@ -63,8 +68,44 @@ export function useFloaterActions(): FloaterApi {
     [store],
   );
 
-  return useMemo(
-    () => ({ ...state, show, hide, toggle }),
-    [state, show, hide, toggle],
+  return useMemo(() => ({ show, hide, toggle }), [show, hide, toggle]);
+}
+
+/**
+ * Subscribes to the boolean `open` flag only. Re-renders just when the bar
+ * opens or closes, never when `actions`/`options` mutate.
+ */
+export function useFloaterOpen(): boolean {
+  const { store } = useCtx();
+  return useSyncExternalStore(
+    store.subscribe,
+    () => store.getState().open,
+    () => store.getServerState().open,
   );
+}
+
+/**
+ * Subscribes to the full state. Used internally by `<FloaterBar>`; rarely
+ * needed by consumers — prefer `useFloaterApi()` + `useFloaterOpen()`.
+ */
+export function useFloaterState(): FloaterState {
+  const { store } = useCtx();
+  return useSyncExternalStore(
+    store.subscribe,
+    store.getState,
+    store.getServerState,
+  );
+}
+
+/**
+ * Convenience hook returning the full API + state (back-compat with v0.1.0).
+ *
+ * **Performance note:** consumers re-render on every state change. For new
+ * code, prefer `useFloaterApi()` (stable methods, no subscription) and read
+ * state via `useFloaterOpen()` only when needed.
+ */
+export function useFloaterActions(): FloaterApi {
+  const state = useFloaterState();
+  const api = useFloaterApi();
+  return useMemo(() => ({ ...state, ...api }), [state, api]);
 }

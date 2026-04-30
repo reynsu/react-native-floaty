@@ -1,28 +1,30 @@
-import { useContext, useCallback } from 'react';
+import { useContext, useCallback, useMemo } from 'react';
 import {
   Modal,
   Pressable,
   Animated,
   View,
   StyleSheet,
+  type ViewStyle,
 } from 'react-native';
 import { FloaterContext } from './context';
-import { useFloaterActions } from './use-floater-actions';
+import { useFloaterApi, useFloaterState } from './use-floater-actions';
 import { useBarAnimation } from './use-bar-animation';
 import { ActionButton } from './action-button';
 import { OverflowPopover } from './overflow-popover';
 import { rowLayout } from './layouts/row';
-import { arcLayout } from './layouts/arc';
+import { radialLayout } from './layouts/radial';
 import type { FloaterAction } from './types';
 
 const layouts = {
   row: rowLayout,
-  arc: arcLayout,
+  radial: radialLayout,
 } as const;
 
 export function FloaterBar() {
   const ctx = useContext(FloaterContext);
-  const { open, actions, options, hide } = useFloaterActions();
+  const { open, actions, options } = useFloaterState();
+  const { hide } = useFloaterApi();
   const position = ctx?.config.position ?? 'bottom';
   const { mounted, translateY, opacity } = useBarAnimation(open, position);
 
@@ -35,22 +37,51 @@ export function FloaterBar() {
     [options.dismissOnSelect, hide],
   );
 
-  if (!ctx || !mounted) return null;
+  // Static (non-animated) part of the bar style — only changes when theme,
+  // layout, or radius change. Pulled out of render so we don't rebuild a
+  // 12-key style object on every animation frame's commit.
+  const theme = ctx?.config.theme;
+  const layout = ctx?.config.layout;
+  const radius = ctx?.config.radius;
+  const staticBarStyle = useMemo<ViewStyle | null>(() => {
+    if (!theme || !layout || radius == null) return null;
+    return {
+      backgroundColor: theme.bg,
+      borderRadius: theme.radius,
+      padding: theme.padding,
+      columnGap: theme.gap,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      ...theme.shadow,
+      ...layouts[layout].barStyle(theme, radius),
+    };
+  }, [theme, layout, radius]);
 
-  const {
-    theme,
-    layout,
-    maxVisible: cfgMax,
-    closeOnOutsideTap,
-    closeOnBackPress,
-    radius,
-  } = ctx.config;
-  const maxVisible = options.maxVisible ?? cfgMax;
-  const visible = actions.slice(0, maxVisible);
-  const overflow = actions.slice(maxVisible);
+  // Pre-compute per-button layout styles once per (layout, slotCount, theme.actionH, radius).
+  // For `row` layout this is always `{}` (cheap); for `radial` it's a small array of
+  // absolute-positioned styles that don't depend on the action itself.
+  const maxVisibleResolved =
+    options.maxVisible ?? ctx?.config.maxVisible ?? 3;
+  const slotCount = useMemo(() => {
+    const visibleCount = Math.min(actions.length, maxVisibleResolved);
+    const hasOverflow = actions.length > maxVisibleResolved;
+    return visibleCount + (hasOverflow ? 1 : 0);
+  }, [actions.length, maxVisibleResolved]);
+
+  const actionStyles = useMemo<ViewStyle[]>(() => {
+    if (!theme || !layout || radius == null || slotCount === 0) return [];
+    const mod = layouts[layout];
+    return Array.from({ length: slotCount }, (_, i) =>
+      mod.actionStyle(i, slotCount, theme, radius),
+    );
+  }, [theme, layout, radius, slotCount]);
+
+  if (!ctx || !mounted || !theme || !staticBarStyle) return null;
+
+  const { closeOnOutsideTap, closeOnBackPress } = ctx.config;
+  const visible = actions.slice(0, maxVisibleResolved);
+  const overflow = actions.slice(maxVisibleResolved);
   const hasOverflow = overflow.length > 0;
-  const slotCount = visible.length + (hasOverflow ? 1 : 0);
-  const layoutMod = layouts[layout];
 
   return (
     <Modal
@@ -80,20 +111,7 @@ export function FloaterBar() {
         pointerEvents="box-none"
       >
         <Animated.View
-          style={[
-            {
-              backgroundColor: theme.bg,
-              borderRadius: theme.radius,
-              padding: theme.padding,
-              columnGap: theme.gap,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: theme.border,
-              ...theme.shadow,
-              transform: [{ translateY }],
-              opacity,
-            },
-            layoutMod.barStyle(theme, radius),
-          ]}
+          style={[staticBarStyle, { transform: [{ translateY }], opacity }]}
           accessibilityRole="toolbar"
           accessibilityLabel="Floating actions"
         >
@@ -102,7 +120,7 @@ export function FloaterBar() {
               key={a.id}
               action={a}
               theme={theme}
-              style={layoutMod.actionStyle(i, slotCount, theme, radius)}
+              style={actionStyles[i]}
               onPress={() => handleSelect(a)}
             />
           ))}
@@ -116,12 +134,7 @@ export function FloaterBar() {
               onClose={() => {
                 if (options.dismissOnSelect !== false) hide();
               }}
-              triggerStyle={layoutMod.actionStyle(
-                visible.length,
-                slotCount,
-                theme,
-                radius,
-              )}
+              triggerStyle={actionStyles[visible.length]}
             />
           )}
         </Animated.View>

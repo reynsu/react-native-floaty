@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { ViewStyle } from 'react-native';
 
 export type ActionVariant = 'default' | 'danger';
-export type FloaterLayout = 'row' | 'arc';
+export type FloaterLayout = 'row' | 'radial';
 export type FloaterPosition = 'bottom' | 'top';
 
 /**
@@ -66,7 +66,7 @@ export type FloaterActionsProviderProps = {
   theme?: Partial<FloaterTheme>;
   layout?: FloaterLayout;
   position?: FloaterPosition;
-  /** Used by the `arc` layout — defaults to `actionH * 1.6`. */
+  /** Used by the `radial` layout — defaults to `actionH * 1.6`. */
   radius?: number;
 };
 
