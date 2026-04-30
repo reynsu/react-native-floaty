@@ -1,4 +1,4 @@
-import { useContext, useCallback, useMemo } from 'react';
+import { useContext, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Modal,
   Pressable,
@@ -14,12 +14,14 @@ import { ActionButton } from './action-button';
 import { OverflowPopover } from './overflow-popover';
 import { rowLayout } from './layouts/row';
 import { radialLayout } from './layouts/radial';
-import type { FloaterAction } from './types';
+import type { LayoutModule } from './layouts/types';
+import type { FloaterAction, FloaterLayout } from './types';
+import { warnDev } from './warn';
 
-const layouts = {
+const layouts: Record<FloaterLayout, LayoutModule> = {
   row: rowLayout,
   radial: radialLayout,
-} as const;
+};
 
 export function FloaterBar() {
   const ctx = useContext(FloaterContext);
@@ -43,8 +45,10 @@ export function FloaterBar() {
   const theme = ctx?.config.theme;
   const layout = ctx?.config.layout;
   const radius = ctx?.config.radius;
+  const layoutMod = layout ? layouts[layout] : null;
+
   const staticBarStyle = useMemo<ViewStyle | null>(() => {
-    if (!theme || !layout || radius == null) return null;
+    if (!theme || !layoutMod || radius == null) return null;
     return {
       backgroundColor: theme.bg,
       borderRadius: theme.radius,
@@ -53,13 +57,11 @@ export function FloaterBar() {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       ...theme.shadow,
-      ...layouts[layout].barStyle(theme, radius),
+      ...layoutMod.barStyle(theme, radius),
     };
-  }, [theme, layout, radius]);
+  }, [theme, layoutMod, radius]);
 
   // Pre-compute per-button layout styles once per (layout, slotCount, theme.actionH, radius).
-  // For `row` layout this is always `{}` (cheap); for `radial` it's a small array of
-  // absolute-positioned styles that don't depend on the action itself.
   const maxVisibleResolved =
     options.maxVisible ?? ctx?.config.maxVisible ?? 3;
   const slotCount = useMemo(() => {
@@ -69,19 +71,36 @@ export function FloaterBar() {
   }, [actions.length, maxVisibleResolved]);
 
   const actionStyles = useMemo<ViewStyle[]>(() => {
-    if (!theme || !layout || radius == null || slotCount === 0) return [];
-    const mod = layouts[layout];
+    if (!theme || !layoutMod || radius == null || slotCount === 0) return [];
     return Array.from({ length: slotCount }, (_, i) =>
-      mod.actionStyle(i, slotCount, theme, radius),
+      layoutMod.actionStyle(i, slotCount, theme, radius),
     );
-  }, [theme, layout, radius, slotCount]);
+  }, [theme, layoutMod, radius, slotCount]);
 
-  if (!ctx || !mounted || !theme || !staticBarStyle) return null;
+  // Dev-only: warn once per show() when an icon-only layout receives actions
+  // with labels. The labels are still set as accessibilityLabel; they just
+  // don't render visually.
+  const warnedSetRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!open || !layoutMod?.iconOnly) return;
+    for (const a of actions) {
+      if (a.label && !warnedSetRef.current.has(a.id)) {
+        warnedSetRef.current.add(a.id);
+        warnDev(
+          `action "${a.id}" has a label but the "${layout}" layout is icon-only — label suppressed (kept as accessibilityLabel)`,
+        );
+      }
+    }
+  }, [open, actions, layout, layoutMod]);
+
+  if (!ctx || !mounted || !theme || !staticBarStyle || !layoutMod) return null;
 
   const { closeOnOutsideTap, closeOnBackPress } = ctx.config;
   const visible = actions.slice(0, maxVisibleResolved);
   const overflow = actions.slice(maxVisibleResolved);
   const hasOverflow = overflow.length > 0;
+  const forceIconOnly = layoutMod.iconOnly;
+  const floating = layoutMod.floatingButtons;
 
   return (
     <Modal
@@ -115,6 +134,7 @@ export function FloaterBar() {
           accessibilityRole="toolbar"
           accessibilityLabel="Floating actions"
         >
+          {layoutMod.ornament?.(theme, radius!)}
           {visible.map((a, i) => (
             <ActionButton
               key={a.id}
@@ -122,6 +142,8 @@ export function FloaterBar() {
               theme={theme}
               style={actionStyles[i]}
               onPress={() => handleSelect(a)}
+              forceIconOnly={forceIconOnly}
+              floating={floating}
             />
           ))}
           {hasOverflow && (
@@ -135,6 +157,7 @@ export function FloaterBar() {
                 if (options.dismissOnSelect !== false) hide();
               }}
               triggerStyle={actionStyles[visible.length]}
+              floating={floating}
             />
           )}
         </Animated.View>

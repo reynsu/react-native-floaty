@@ -25,7 +25,7 @@ const iconOnlyActions: FloaterAction[] = [
   { id: 'share', icon: <Text style={glyph}>↗</Text>, ariaLabel: 'Share', onSelect: () => {} },
 ];
 
-function Demo() {
+function Demo({ layout }: { layout: FloaterLayout }) {
   const { show } = useFloaterActions();
   const [pressedAction, setPressedAction] = useState<string>('—');
 
@@ -33,6 +33,33 @@ function Demo() {
     ...a,
     onSelect: () => setPressedAction(a.label!),
   }));
+  const liveIcons = iconOnlyActions.map((a) => ({
+    ...a,
+    onSelect: () => setPressedAction(a.ariaLabel!),
+  }));
+
+  if (layout === 'radial') {
+    // Radial enforces icon-only at the lib level; show triggers tailored to it.
+    const sixIcons: FloaterAction[] = [
+      ...liveIcons,
+      { id: 'pin', icon: <Text style={glyph}>📍</Text>, ariaLabel: 'Pin', onSelect: () => setPressedAction('Pin') },
+      { id: 'trash', icon: <Text style={glyph}>🗑</Text>, ariaLabel: 'Delete', variant: 'danger' as const, onSelect: () => setPressedAction('Delete') },
+    ];
+    return (
+      <ScrollView contentContainerStyle={s.screen}>
+        <Text style={s.h1}>Radial</Text>
+        <Text style={s.muted}>
+          Icon-only by design. Lowest button stays above the safe-area inset.
+        </Text>
+        <Trigger label="4 icon actions" onPress={() => show(liveIcons, { maxVisible: 4 })} />
+        <Trigger label="6 icon actions" onPress={() => show(sixIcons, { maxVisible: 6 })} />
+        <View style={s.statusBox}>
+          <Text style={s.statusLabel}>Last action</Text>
+          <Text style={s.statusValue}>{pressedAction}</Text>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={s.screen}>
@@ -43,7 +70,7 @@ function Demo() {
       <Trigger label="5 actions (overflow)" onPress={() => show(liveActions)} />
       <Trigger
         label="Icon-only"
-        onPress={() => show(iconOnlyActions, { maxVisible: 4 })}
+        onPress={() => show(liveIcons, { maxVisible: 4 })}
       />
       <Trigger
         label="Stay open (dismissOnSelect: false)"
@@ -122,7 +149,7 @@ export default function App() {
         theme={variant.theme}
         maxVisible={3}
       >
-        <Demo />
+        <Demo layout={variant.layout} />
       </FloaterActionsProvider>
     </View>
   );

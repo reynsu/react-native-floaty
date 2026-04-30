@@ -2,16 +2,40 @@ import { rowLayout } from '../src/layouts/row';
 import { radialLayout } from '../src/layouts/radial';
 import { defaultTheme } from '../src/theme';
 
+describe('radialLayout flags', () => {
+  it('declares iconOnly + floatingButtons', () => {
+    expect(radialLayout.iconOnly).toBe(true);
+    expect(radialLayout.floatingButtons).toBe(true);
+  });
+
+  it('provides an ornament renderer that returns a node', () => {
+    expect(typeof radialLayout.ornament).toBe('function');
+    const node = radialLayout.ornament!(defaultTheme, 70);
+    expect(node).toBeTruthy();
+  });
+});
+
+describe('rowLayout flags', () => {
+  it('does not enforce iconOnly or floatingButtons', () => {
+    expect(rowLayout.iconOnly).toBeUndefined();
+    expect(rowLayout.floatingButtons).toBeUndefined();
+  });
+
+  it('has no ornament', () => {
+    expect(rowLayout.ornament).toBeUndefined();
+  });
+});
+
 describe('rowLayout', () => {
   it('barStyle is flex row', () => {
-    expect(rowLayout.barStyle()).toEqual({
+    expect(rowLayout.barStyle(defaultTheme, 0)).toEqual({
       flexDirection: 'row',
       alignItems: 'center',
     });
   });
 
   it('actionStyle is empty (per-button styling not needed)', () => {
-    expect(rowLayout.actionStyle()).toEqual({});
+    expect(rowLayout.actionStyle(0, 1, defaultTheme, 0)).toEqual({});
   });
 });
 

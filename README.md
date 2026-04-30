@@ -180,24 +180,43 @@ type FloaterTheme = {
 └────────────────────────────┘
 ```
 
-### `radial` — 360° orbit
+### `radial` — 360° orbit (icon-only)
 
-Buttons distribute evenly around a circle of `radius` pixels. Combined with the
-default `position: 'bottom'` and `theme.bottomInset`, the lowest button (south
-of the orbit) sits exactly `bottomInset` pixels above the screen bottom — fully
-visible — while the rest fan upward and around.
+Buttons distribute evenly around a circle of `radius` pixels and render as
+self-contained floating chips (white bg + shadow + circular border). Two
+dashed reference rings sit behind them — an outer ring through the button
+centres and a small inner ring as a decorative dot.
+
+Combined with the default `position: 'bottom'` and `theme.bottomInset`, the
+lowest button (south of the orbit) sits exactly `bottomInset` pixels above the
+screen bottom — fully visible — while the rest fan upward and around.
 
 ```
         (i=0, top)
 (i=n-1)             (i=1)
-(i=...)             (i=...)
+(i=...)  ◌  (i=...)         ← inner dashed dot
         (i=n/2, bottom — sits at bottomInset)
 ```
+
+**Icon-only enforced.** Actions with `label` set will have it suppressed
+visually (the label still becomes the `accessibilityLabel`); a dev warning
+fires the first time each labeled action is shown.
 
 ```tsx
 <FloaterActionsProvider layout="radial" radius={90}>
   <App />
 </FloaterActionsProvider>
+
+// Trigger with icon-only actions:
+const { show } = useFloaterApi();
+show([
+  { id: 'heart', icon: <HeartIcon />, ariaLabel: 'Like',     onSelect: like },
+  { id: 'save',  icon: <SaveIcon />,  ariaLabel: 'Bookmark', onSelect: save },
+  { id: 'share', icon: <ShareIcon />, ariaLabel: 'Share',    onSelect: share },
+  { id: 'pin',   icon: <PinIcon />,   ariaLabel: 'Pin',      onSelect: pin },
+  { id: 'copy',  icon: <CopyIcon />,  ariaLabel: 'Copy',     onSelect: copy },
+  { id: 'trash', icon: <TrashIcon />, ariaLabel: 'Delete',   variant: 'danger', onSelect: del },
+], { maxVisible: 6 });
 ```
 
 ## Differences from `react-floaty` (web)

@@ -31,6 +31,51 @@ function Harness({ actions }: { actions: FloaterAction[] }) {
   );
 }
 
+describe('FloaterBar — radial layout', () => {
+  it('suppresses labels and warns once per labeled action', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const actions: FloaterAction[] = [
+      { id: 'heart', label: 'Like', icon: <Text>♥</Text>, onSelect: jest.fn() },
+      { id: 'star', label: 'Star', icon: <Text>★</Text>, onSelect: jest.fn() },
+    ];
+    render(
+      <FloaterActionsProvider layout="radial" radius={70}>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+
+    // Labels should NOT render visually.
+    expect(screen.queryByText('Like')).toBeNull();
+    expect(screen.queryByText('Star')).toBeNull();
+    // But they remain as accessibility labels.
+    expect(screen.getByLabelText('Like')).toBeTruthy();
+    expect(screen.getByLabelText('Star')).toBeTruthy();
+    // Two warnings — one per labeled action.
+    const calls = warn.mock.calls.filter((c) =>
+      String(c[0]).includes('icon-only — label suppressed'),
+    );
+    expect(calls).toHaveLength(2);
+
+    warn.mockRestore();
+  });
+
+  it('renders the ornament behind the buttons', () => {
+    const actions: FloaterAction[] = [
+      { id: 'a', icon: <Text testID="icon-a">A</Text>, ariaLabel: 'A', onSelect: jest.fn() },
+    ];
+    render(
+      <FloaterActionsProvider layout="radial" radius={70}>
+        <Harness actions={actions} />
+      </FloaterActionsProvider>,
+    );
+    fireEvent.press(screen.getByText('open'));
+    // Toolbar mounted; icons rendered (i.e. Animated.View tree includes them).
+    expect(screen.getByLabelText('Floating actions')).toBeTruthy();
+    expect(screen.getByTestId('icon-a')).toBeTruthy();
+  });
+});
+
 describe('FloaterBar', () => {
   it('renders maxVisible buttons + overflow trigger when needed', () => {
     const actions = makeActions(5);

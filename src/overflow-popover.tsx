@@ -15,6 +15,8 @@ type Props = {
   onSelect: (action: FloaterAction) => void;
   onClose: () => void;
   triggerStyle?: StyleProp<ViewStyle>;
+  /** Render the trigger as a self-contained chip (matches floating layouts). */
+  floating?: boolean;
 };
 
 export function OverflowPopover({
@@ -23,6 +25,7 @@ export function OverflowPopover({
   onSelect,
   onClose,
   triggerStyle,
+  floating,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -33,17 +36,29 @@ export function OverflowPopover({
         accessibilityRole="button"
         accessibilityLabel="More actions"
         accessibilityState={{ expanded: isOpen }}
-        style={({ pressed }) => [
-          {
-            width: theme.actionH,
-            height: theme.actionH,
-            borderRadius: theme.radiusInner,
-            backgroundColor: pressed ? theme.actionBgPressed : theme.actionBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-          },
-          triggerStyle,
-        ]}
+        style={({ pressed }) => {
+          const baseBg = floating ? theme.bg : theme.actionBg;
+          const pressedBg = floating ? theme.bg : theme.actionBgPressed;
+          return [
+            {
+              width: theme.actionH,
+              height: theme.actionH,
+              borderRadius: floating ? theme.actionH / 2 : theme.radiusInner,
+              backgroundColor: pressed ? pressedBg : baseBg,
+              opacity: pressed && floating ? 0.72 : 1,
+              alignItems: 'center' as const,
+              justifyContent: 'center' as const,
+              ...(floating
+                ? {
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: theme.border,
+                    ...theme.shadow,
+                  }
+                : null),
+            },
+            triggerStyle,
+          ];
+        }}
       >
         <Text style={{ color: theme.fg, fontSize: 20, lineHeight: 22 }}>+</Text>
       </Pressable>
