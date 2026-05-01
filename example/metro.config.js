@@ -31,9 +31,14 @@ config.resolver.blockList = [
   new RegExp(`${escapedParent}[/\\\\]node_modules[/\\\\].*`),
 ];
 
+// `react-native-web` is required for the web target because Expo's web
+// preset rewrites `import 'react-native'` → `react-native-web/dist/exports/...`
+// at bundle time. With the parent blocked, the lib's dist/ can't find it
+// without an explicit alias.
 config.resolver.extraNodeModules = {
   react: path.resolve(exampleModules, 'react'),
   'react-native': path.resolve(exampleModules, 'react-native'),
+  'react-native-web': path.resolve(exampleModules, 'react-native-web'),
   'react-dom': path.resolve(exampleModules, 'react-dom'),
 };
 
